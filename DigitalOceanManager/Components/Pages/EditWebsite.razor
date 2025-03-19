@@ -132,12 +132,10 @@ else
         Navigation.NavigateTo(ReturnUrl);
     }
     
-    private string ExecuteCommand(string command)
+    private void ExecuteCommand(string command)
     {
-        var result = SshService.ExecuteCommand(Droplet?.IpAddress, command);
+        SshService.ExecuteCommand(Droplet?.IpAddress, command);
         StateHasChanged();
-
-        return result;
     }
     
     private void NavigateBack()
