@@ -1,0 +1,88 @@
+<div class="card">
+    <div class="card-header">
+        Firewall Rules
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                <tr>
+                    <th>Rule #</th>
+                    <th>To</th>
+                    <th>Action</th>
+                    <th>From</th>
+                    <th style="width: 200px;">Actions</th>
+                </tr>
+                </thead>
+                <tbody>
+                @if (!IsLoaded)
+                {
+                    <p>Fetching firewall rules...</p>
+                }
+                else
+                {
+                    if (FirewallRules.Any())
+                    {
+                        foreach (var rule in FirewallRules)
+                        {
+                            <tr>
+                                <td>[ @rule.RuleNumber ]</td>
+                                <td>@rule.To</td>
+                                <td>@rule.Action</td>
+                                <td>@rule.From</td>
+                                <td style="width: 200px;">
+                                    <DeleteConfirmationModal RecordType="Firewall Rule" OnDeleteConfirmed="@(() => RemoveFirewallRule(rule.RuleNumber))" />
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr><td colspan="5">No firewall rules found.</td></tr>
+                    }
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="card-footer">
+        <div class="input-group mb-2">
+            <input @bind="_newIp" class="form-control" placeholder="Allow IP..." />
+            <button class="btn btn-success" @onclick="AddFirewallRule">Allow</button>
+        </div>
+
+        <div class="input-group">
+            <input @bind="_denyIp" class="form-control" placeholder="Deny IP..." />
+            <button class="btn btn-danger" @onclick="DenyFirewallRule">Deny</button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public required string Id { get; set; }
+    [Parameter] public bool IsLoaded { get; set; }
+    [Parameter] public List<FirewallRule> FirewallRules { get; set; } = [];
+    [Parameter] public required Func<int, Task> RemoveFirewallRuleCallback { get; set; }
+    [Parameter] public required Func<string, Task> AddFirewallRuleCallback { get; set; }
+    [Parameter] public required Func<string, Task> DenyFirewallRuleCallback { get; set; }
+    
+    private string _newIp = string.Empty;
+    private string _denyIp = string.Empty;
+
+    private async Task RemoveFirewallRule(int ruleNumber)
+    {
+        await RemoveFirewallRuleCallback(ruleNumber);
+    }
+    
+    private async Task AddFirewallRule()
+    {
+        await AddFirewallRuleCallback(_newIp);
+        _newIp = string.Empty;
+    }
+    
+    private async Task DenyFirewallRule()
+    {
+        await DenyFirewallRuleCallback(_newIp);
+        _denyIp = string.Empty;
+    }
+}

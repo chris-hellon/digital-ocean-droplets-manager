@@ -1,0 +1,21 @@
+@if (IsVisible)
+{
+    <div class="page-spinner-overlay">
+        <div class="spinner-border text-light" role="status"></div>
+    </div>
+}
+
+@code {
+    private bool IsVisible { get; set; }
+
+    protected override void OnInitialized()
+    {
+        LoaderService.OnChange += UpdateVisibility;
+    }
+
+    private async Task UpdateVisibility()
+    {
+        IsVisible = LoaderService.IsLoading;
+        await InvokeAsync(StateHasChanged);
+    }
+}

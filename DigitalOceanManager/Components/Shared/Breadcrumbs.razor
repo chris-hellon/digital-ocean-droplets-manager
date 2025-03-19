@@ -1,0 +1,21 @@
+<nav style="--bs-breadcrumb-divider: '>';" aria-label="breadcrumb" class="navbar-breadcrumbs px-4 pt-4 pb-4 bg-white">
+    <ol class="breadcrumb">
+        @foreach (var item in Items)
+        {
+            <li class="breadcrumb-item @(item.IsActive ? "active" : "")" aria-current="@(item.IsActive ? "page" : null)">
+                @if (!item.IsActive)
+                {
+                    <a href="@item.Url">@item.Label</a>
+                }
+                else
+                {
+                    @item.Label
+                }
+            </li>
+        }
+    </ol>
+</nav>
+
+@code {
+    [Parameter] public required List<BreadcrumbItem> Items { get; set; }
+}

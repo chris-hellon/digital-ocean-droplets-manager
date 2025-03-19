@@ -1,0 +1,147 @@
+@page "/edit-website/{Id}/{Domain}"
+
+@inject ISshService SshService
+@inject IJSRuntime JS
+@inject NavigationManager Navigation
+
+<SectionContent SectionName="HeaderNav">
+    <TopNavBar Title="@($"Edit Website: {Domain}")" />
+    
+    @if (IsLoaded)
+    {
+        <Breadcrumbs Items="@_breadcrumbs"/>
+    }
+</SectionContent>
+
+@if (!IsLoaded)
+{
+    <LoaderButton Title="Loading Website..." />
+}
+else
+{
+    <div class="mb-4">
+        <label>Domain Name</label>
+        <input class="form-control" disabled value="@Domain" />
+    </div>
+
+    <div class="mb-4">
+        <label>Nginx Configuration</label>
+        <textarea @bind="_nginxConfig" class="form-control" rows="15" disabled="@_busySubmitting"></textarea>
+    </div>
+
+    <div class="mb-4">
+        <label>Supervisor Configuration</label>
+        <textarea @bind="_supervisorConfig" class="form-control" rows="9" disabled="@_busySubmitting"></textarea>
+    </div>
+    
+    <SectionContent SectionName="FooterActions">
+        <BottomNavBar>
+            <div class="d-flex justify-content-between">
+                <div>
+                    <button class="btn btn-primary" @onclick="SaveSite" disabled="@_busySubmitting">
+                        Save Changes
+                    </button>
+                    <button class="btn btn-secondary" @onclick="NavigateBack" disabled="@_busySubmitting">
+                        Cancel
+                    </button>
+                </div>
+                <div>
+                    <DeployScriptModal Domain="@Domain" Droplet="@Droplet" ProgramName="@_programName" />
+                </div>
+            </div>
+        </BottomNavBar>
+    </SectionContent>
+}
+
+@code {
+    [Parameter] public required string Id { get; set; }
+    [Parameter] public string Domain { get; set; } = null!;
+    
+    private Droplet? Droplet { get; set; }
+    private List<BreadcrumbItem> _breadcrumbs = [];
+    
+    private string _nginxConfig = "Loading Config...";
+    private string _supervisorConfig = "Loading Config...";
+    private string _supervisorConfigFile = "Loading Config...";
+    private string _programName = "";
+    private bool _busySubmitting;
+    private string ReturnUrl => $"/manage-droplet/{Id}";
+    private bool IsLoaded { get; set; }
+    
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        Droplet = await DropletStateService.GetDropletById(int.Parse(Id));
+        
+        if (Droplet == null) return;
+        
+        _breadcrumbs =
+        [
+            new BreadcrumbItem {Label = "Droplets", Url = "/"},
+            new BreadcrumbItem {Label = $"Manage {Droplet?.Name.CapitalizeFirstLetter()} Droplet", Url = $"/manage-droplet/{Id}"},
+            new BreadcrumbItem {Label = $"Edit Website: {Domain}"}
+        ];
+        
+        await LoadSiteConfig();
+        IsLoaded = true;
+        StateHasChanged();
+    }
+
+    private async Task LoadSiteConfig()
+    {
+        var siteConfig = await DropletStateService.GetSiteConfigAsync(int.Parse(Id), Domain);
+
+        if (siteConfig == null)
+        {
+            Console.WriteLine($"⚠️ No cached config found for {Domain}, reloading...");
+            await DropletStateService.LoadAllSitesAsync(Droplet!);
+            siteConfig = await DropletStateService.GetSiteConfigAsync(int.Parse(Id), Domain);
+        }
+
+        _nginxConfig = siteConfig?.NginxConfig ?? "Nginx Config Not Found";
+        _supervisorConfigFile = siteConfig?.SupervisorConfigFile ?? string.Empty;
+        _supervisorConfig = siteConfig?.SupervisorConfig ?? "Supervisor Config Not Found";
+        _programName = _supervisorConfig.ExtractProgramNameFromSupervisorConfig();
+    }
+
+    private async Task SaveSite()
+    {
+        _busySubmitting = true;
+        
+        await LoaderService.Show();
+        await ToastService.ShowToast($"Updating site: {Domain}");
+        
+        var escapedNginxConfig = _nginxConfig.EscapeForShell();
+        var escapedSupervisorConfig = _supervisorConfig.EscapeForShell();
+
+        ExecuteCommand($"echo \"{escapedNginxConfig}\" | sudo tee /etc/nginx/sites-available/{Domain}");
+    
+        if (!string.IsNullOrWhiteSpace(_supervisorConfigFile))
+        {
+            ExecuteCommand($"echo \"{escapedSupervisorConfig}\" | sudo tee /etc/supervisor/conf.d/{_supervisorConfigFile}");
+        }
+
+        // ✅ Update session storage with the modified config
+        await DropletStateService.UpdateSiteConfigAsync(int.Parse(Id), Domain, _nginxConfig, _supervisorConfig, _supervisorConfigFile);
+
+        await ToastService.ShowSuccessToast("🚀 Site Updated Successfully");
+        await LoaderService.Hide();
+        
+        Navigation.NavigateTo(ReturnUrl);
+    }
+    
+    private string ExecuteCommand(string command)
+    {
+        var result = SshService.ExecuteCommand(Droplet?.IpAddress, command);
+        StateHasChanged();
+
+        return result;
+    }
+    
+    private void NavigateBack()
+    {
+        Navigation.NavigateTo(ReturnUrl);
+    }
+}

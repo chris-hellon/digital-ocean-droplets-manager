@@ -1,0 +1,39 @@
+@page "/"
+
+<SectionContent SectionName="HeaderNav">
+    <TopNavBar Title="Droplets" />
+</SectionContent>
+
+
+@if (_droplets == null)
+{
+    <LoaderButton Title="Loading Droplets..." />
+}
+else if (_droplets.Count == 0)
+{
+    <p>No droplets found.</p>
+}
+else
+{
+    <DropletList Droplets="@_droplets" />
+}
+
+@code {
+    private List<Droplet>? _droplets;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _droplets != null) 
+            return;
+
+        try
+        {
+            _droplets = await DropletStateService.GetDropletsAsync();
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching droplets: {ex.Message}");
+        }
+    }
+}

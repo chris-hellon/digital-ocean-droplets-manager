@@ -1,0 +1,375 @@
+@page "/create-website/{Id}"
+@using System.Text.RegularExpressions
+
+@inject NavigationManager Navigation
+
+<SectionContent SectionName="HeaderNav">
+    <TopNavBar Title="Create New Website"/>
+    
+    @if (IsLoaded)
+    {
+        <Breadcrumbs Items="@_breadcrumbs"/>
+    }
+</SectionContent>
+
+@if (!IsLoaded)
+{
+    <LoaderButton Title="Loading Config..." />
+}
+else
+{
+    <div class="mb-4">
+        <label>Domain Name</label>
+        <InputText Value="@_domain" ValueChanged="SetDomain" ValueExpression="() => _domain" class="form-control"
+                   placeholder="e.g. example.io" disabled="@_busySubmitting"></InputText>
+        @if (!string.IsNullOrWhiteSpace(_domainError))
+        {
+            <div class="text-danger mt-1">@_domainError</div>
+        }
+    </div>
+
+    <div class="mb-4">
+        <label>Port</label>
+        <select class="form-select" @onchange="SelectPort" disabled="@_busySubmitting">
+            <option value="">Select an existing port...</option>
+            @foreach (var port in _usedPortsBySite.Values.Distinct().Order())
+            {
+                <option value="@port">@port</option>
+            }
+            <option value="new">Enter a new port</option>
+        </select>
+
+        @if (_selectingNewPort)
+        {
+            <InputNumber TValue="int" Value="@_port" ValueChanged="CheckPortUsage" ValueExpression="() => _port"
+                         class="form-control mt-2" placeholder="Enter a new port (e.g. 5001)" disabled="@_busySubmitting"/>
+        }
+
+        @if (_portConflict)
+        {
+            <div class="alert alert-warning mt-2">@($"⚠️ Port {_port} is already in use! Port {_port} Supervisor Config will be used.")</div>
+        }
+    </div>
+
+    <div class="mb-4">
+        <input type="checkbox" checked="@_isBlazor" @onchange="@ToggleBlazor" disabled="@_busySubmitting"/> @(" Is Blazor")
+    </div>
+
+    <div class="mb-4">
+        <label>Nginx Configuration</label>
+        <textarea class="form-control" rows="10" disabled>@_nginxConfig</textarea>
+    </div>
+
+    <div class="mb-4">
+        <label>Supervisor Configuration</label>
+        <textarea class="form-control" rows="8" disabled>@_supervisorConfig</textarea>
+    </div>
+    
+    <SectionContent SectionName="FooterActions">
+        <BottomNavBar>
+            <button class="btn btn-primary" @onclick="SaveSite" disabled="@_busySubmitting">
+                Create Website
+            </button>
+            <button class="btn btn-secondary" @onclick="NavigateBack" disabled="@_busySubmitting">
+                Cancel
+            </button>
+        </BottomNavBar>
+    </SectionContent>
+}
+
+@code {
+    [Parameter] public required string Id { get; set; }
+    private Droplet? Droplet { get; set; }
+
+    private List<BreadcrumbItem> _breadcrumbs = [];
+    
+    private string _domain = string.Empty;
+    private string _domainError = string.Empty;
+    private int _port = 5000;
+    private string _nginxConfig = "Loading Config...";
+    private string _supervisorConfig = "Loading Config...";
+    private bool _isBlazor;
+    private bool _portConflict;
+    private bool _busySubmitting;
+    private bool _selectingNewPort;
+    private string ReturnUrl => $"/manage-droplet/{Id}";
+    private bool IsLoaded { get; set; }
+    
+    private readonly Dictionary<string, int> _usedPortsBySite = new();
+    
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        Droplet = await DropletStateService.GetDropletById(int.Parse(Id));
+        if (Droplet == null)
+            throw new Exception("Droplet not found.");
+        
+        _breadcrumbs = [
+            new BreadcrumbItem {Label = "Droplets", Url = "/"},
+            new BreadcrumbItem {Label = $"Manage {Droplet?.Name.CapitalizeFirstLetter()} Droplet", Url = $"/manage-droplet/{Id}"},
+            new BreadcrumbItem {Label = "Create New Website"}
+        ];
+        
+        await LoadUsedPortsFromCache();
+        
+        GenerateConfigs();
+        IsLoaded = true;
+        StateHasChanged();
+    }
+
+    private async Task LoadUsedPortsFromCache()
+    {
+        _usedPortsBySite.Clear();
+
+        foreach (var site in await DropletStateService.GetAllSitesAsync(int.Parse(Id)))
+        {
+            var siteConfig = await DropletStateService.GetSiteConfigAsync(int.Parse(Id), site);
+            if (siteConfig == null) continue;
+
+            var portMatch = Regex.Match(siteConfig.NginxConfig, @"proxy_pass\s+http://localhost:(\d+);");
+            if (portMatch.Success && int.TryParse(portMatch.Groups[1].Value, out int extractedPort))
+            {
+                _usedPortsBySite[site] = extractedPort;
+            }
+        }
+    }
+
+    private void SetDomain(string domain)
+    {
+        _domain = domain.Trim().ToLower();
+        ValidateDomain();
+        GenerateConfigs();
+    }
+
+    private void ValidateDomain()
+    {
+        var domainPattern = @"^(?!-)([a-zA-Z0-9-]{1,63}\.)+[a-zA-Z]{2,6}$";
+        _domainError = Regex.IsMatch(_domain, domainPattern) ? "" : "❌ Invalid domain format!";
+        StateHasChanged();
+    }
+    
+    private void SelectPort(ChangeEventArgs e)
+    {
+        var selectedValue = e.Value?.ToString();
+        if (selectedValue == "new")
+        {
+            _selectingNewPort = true;
+            _port = 5000;
+        }
+        else if (int.TryParse(selectedValue, out int selectedPort))
+        {
+            _port = selectedPort;
+            _selectingNewPort = false;
+        }
+
+        _ = CheckPortUsage(_port);
+    }
+    
+    private async Task CheckPortUsage(int port)
+    {
+        _port = port;
+        _portConflict = _usedPortsBySite.Values.Contains(_port);
+
+        _nginxConfig = _isBlazor
+            ? StringUtils.GetBlazorNginxConfig(_domain, _port, _portConflict)
+            : StringUtils.GetNonBlazorNginxConfig(_domain, _port, _portConflict);
+
+        if (_portConflict)
+        {
+            var matchedSite = _usedPortsBySite.FirstOrDefault(x => x.Value == _port).Key;
+            if (!string.IsNullOrWhiteSpace(matchedSite))
+            {
+                var matchedConfig = await DropletStateService.GetSiteConfigAsync(int.Parse(Id), matchedSite);
+                if (matchedConfig != null)
+                {
+                    _supervisorConfig = matchedConfig.SupervisorConfig;
+                    StateHasChanged();
+                    return;
+                }
+            }
+        }
+
+        var programName = _domain.Split('.')[0];
+        _supervisorConfig = StringUtils.GetSupervisorConfig(programName, _port);
+        StateHasChanged();
+    }
+
+    private void ToggleBlazor()
+    {
+        _isBlazor = !_isBlazor;
+
+        _nginxConfig = _isBlazor ? StringUtils.GetBlazorNginxConfig(_domain, _port, _portConflict) : StringUtils.GetNonBlazorNginxConfig(_domain, _port, _portConflict);
+
+        if (!_portConflict)
+        {
+            var programName = _domain.Split('.')[0];
+            _supervisorConfig = StringUtils.GetSupervisorConfig(programName, _port);
+        }
+
+        StateHasChanged();
+    }
+
+    private void GenerateConfigs()
+    {
+        var programName = _domain.Split('.')[0];
+
+        _nginxConfig = _isBlazor ? StringUtils.GetBlazorNginxConfig(_domain, _port, _portConflict) : StringUtils.GetNonBlazorNginxConfig(_domain, _port, _portConflict);
+
+        if (!_portConflict)
+        {
+            _supervisorConfig = StringUtils.GetSupervisorConfig(programName, _port);
+        }
+
+        StateHasChanged();
+    }
+    
+    private async Task SaveSite()
+    {
+        if (string.IsNullOrWhiteSpace(_domain) || !string.IsNullOrWhiteSpace(_domainError))
+        {
+            await ToastService.ShowErrorToast("Please complete all required fields and check any validation errors.");
+            return;
+        }
+        
+        await LoaderService.Show();
+        
+        _busySubmitting = true;
+        
+        Console.WriteLine($"🚀 Creating site: {_domain} on port {_port}"); 
+        await ToastService.ShowToast($"Creating site: {_domain} on port {_port}");
+
+        // ✅ Step 1: Write Temporary Nginx Config (HTTP Only)
+        var tempNginxConfig = StringUtils.GetTemporaryNginxConfig(_domain, _port, _portConflict);
+
+        ExecuteCommand($"echo \"{tempNginxConfig}\" | sudo tee /etc/nginx/sites-available/{_domain}");
+        ExecuteCommand($"sudo ln -sf /etc/nginx/sites-available/{_domain} /etc/nginx/sites-enabled/");
+        ExecuteCommand("sudo nginx -t && sudo systemctl restart nginx || sudo systemctl start nginx");
+
+        // ✅ Step 2: Request SSL Certificate
+        await ToastService.ShowToast($"Requesting SSL Certificate for {_domain}");
+        ExecuteCommand($"sudo certbot --nginx -d {_domain} --non-interactive --agree-tos --force-renewal -m admin@{_domain}");
+
+        // ✅ Step 3: Replace with Full Nginx Config (with SSL)
+        var finalNginxConfigRaw = _isBlazor ? StringUtils.GetBlazorNginxConfig(_domain, _port, _portConflict) : StringUtils.GetNonBlazorNginxConfig(_domain, _port, _portConflict);
+        var finalNginxConfig = finalNginxConfigRaw.EscapeForShell();
+        ExecuteCommand($"echo \"{finalNginxConfig}\" | sudo tee /etc/nginx/sites-available/{_domain}");
+        ExecuteCommand("sudo nginx -t && sudo systemctl restart nginx || sudo systemctl start nginx");
+
+        // ✅ Step 4: Enable Auto-Renewal for SSL
+        ExecuteCommand("sudo systemctl enable --now certbot.timer");
+
+        // ✅ Step 5: Ensure UFW is Enabled & Allow Ports
+        ExecuteCommand("sudo ufw allow 22/tcp");
+        ExecuteCommand("sudo ufw allow 80/tcp");
+        ExecuteCommand("sudo ufw allow 443/tcp");
+        ExecuteCommand("sudo ufw --force enable");
+
+        string programName;
+        string appPath;
+        string dllPath;
+        string supervisorConfigFile;
+
+        if (_portConflict)
+        {
+            // ✅ Find existing program using the port
+            var existingProgram = _usedPortsBySite.FirstOrDefault(x => x.Value == _port).Key;
+            Console.WriteLine($"⚠️ Port conflict detected. Matching existing program: {existingProgram}");
+
+            // ✅ Read the Supervisor config to extract the correct DLL path
+            var existingConfig = await DropletStateService.GetSiteConfigAsync(int.Parse(Id), existingProgram);
+            var commandMatch = Regex.Match(existingConfig?.SupervisorConfig ?? "", @"command=/usr/bin/dotnet\s+(/var/www/[\w.-]+/([\w.-]+\.dll))");
+
+            if (commandMatch.Success)
+            {
+                dllPath = commandMatch.Groups[1].Value;
+                appPath = Path.GetDirectoryName(dllPath)!;
+                programName = Path.GetFileNameWithoutExtension(dllPath);
+            }
+            else
+            {
+                Console.WriteLine($"❌ Could not extract DLL path from Supervisor config for {existingProgram}");
+                return;
+            }
+            
+            supervisorConfigFile = existingConfig?.SupervisorConfigFile ?? $"{_domain}.conf";
+        }
+        else
+        {
+            programName = _domain.Split('.')[0];
+            appPath = $"/var/www/{programName}";
+            dllPath = $"{appPath}/{programName}.dll";
+            supervisorConfigFile = $"{_domain}.conf";
+        }
+
+        // ✅ Step 6: Check if the application already exists
+        await ToastService.ShowToast($"Configuring SSL Cert for {_domain}");
+        bool appExists = ExecuteCommand($"if [ -f \"{dllPath}\" ]; then echo \"exists\"; else echo \"missing\"; fi").Trim() == "exists";
+
+        if (!appExists)
+        {
+            Console.WriteLine($"⚠️ No deployment found for {programName}. Creating app directory.");
+            ExecuteCommand($"sudo mkdir -p {appPath}");
+            ExecuteCommand($"sudo chown -R www-data:www-data {appPath}");
+            ExecuteCommand($"sudo chmod -R 755 {appPath}");
+        }
+
+        if (!_portConflict)
+        {
+            // ✅ No existing program, create Supervisor config
+            ExecuteCommand($"echo \"{_supervisorConfig}\" | sudo tee /etc/supervisor/conf.d/{_domain}.conf");
+            ExecuteCommand("sudo supervisorctl reread && sudo supervisorctl update");
+
+            // ✅ Start Supervisor only if DLL exists
+            if (appExists)
+            {
+                ExecuteCommand($"sudo supervisorctl start {_domain}");
+            }
+            else
+            {
+                Console.WriteLine($"⚠️ {programName} is not deployed yet. Run `supervisorctl start {_domain}` after deployment.");
+            }
+
+            // ✅ Ensure Supervisor is Running at Startup
+            ExecuteCommand("sudo systemctl enable --now supervisor");
+        }
+        else
+        {
+            // ✅ Restart existing program only if it exists
+            var existingProgram = _usedPortsBySite.FirstOrDefault(x => x.Value == _port).Key;
+            Console.WriteLine($"🔄 Restarting existing program: {existingProgram}");
+
+            var supervisorStatus = ExecuteCommand($"sudo supervisorctl status {existingProgram}");
+            if (!supervisorStatus.Contains("no such process"))
+            {
+                ExecuteCommand($"sudo supervisorctl restart {existingProgram}");
+            }
+            else
+            {
+                Console.WriteLine($"⚠️ Supervisor process {existingProgram} does not exist. Skipping restart.");
+            }
+        }
+        
+        await DropletStateService.UpdateSiteConfigAsync(int.Parse(Id), _domain, finalNginxConfigRaw, _supervisorConfig, supervisorConfigFile);
+        
+        await ToastService.ShowSuccessToast("🚀 Site Created Successfully");
+        await LoaderService.Hide();
+        
+        Navigation.NavigateTo(ReturnUrl);
+    }
+
+    private string ExecuteCommand(string command)
+    {
+        var result = SshService.ExecuteCommand(Droplet?.IpAddress, command);
+        StateHasChanged();
+
+        return result;
+    }
+
+    private void NavigateBack()
+    {
+        Navigation.NavigateTo(ReturnUrl);
+    }
+
+}

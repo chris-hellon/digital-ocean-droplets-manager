@@ -1,0 +1,68 @@
+<button class="@($"btn btn-{ButtonType} btn-{ButtonSize} text-white {AdditionalButtonClass}")" @onclick="ShowModal">@ButtonTitle</button>
+
+@if (IsVisible)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0, 0, 0, 0.5);">
+        <div class="@($"modal-dialog modal-{ModalSize} modal-dialog-centered")">
+            <div class="modal-content">
+                <div class="modal-header">
+                    @if (!string.IsNullOrEmpty(Title))
+                    {
+                        <h5 class="modal-title">@Title</h5>
+                    }
+                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body">
+                    @Body
+                </div>
+                @if (Footer != null || OnConfirm.HasDelegate)
+                {
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
+                        @if (OnConfirm.HasDelegate)
+                        {
+                            <button class="@($"btn btn-{ConfirmButtonType}")" @onclick="ConfirmAction">@ConfirmButtonText</button>
+                        }
+                        @Footer
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public string ButtonTitle { get; set; } = "Show Modal";
+    [Parameter] public required RenderFragment Body { get; set; }
+    [Parameter] public RenderFragment? Footer { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnConfirm { get; set; }
+    [Parameter] public string ConfirmButtonText { get; set; } = "Confirm";
+    [Parameter] public string ConfirmButtonType { get; set; } = "primary";
+    [Parameter] public string ButtonType { get; set; } = "info";
+    [Parameter] public string ButtonSize { get; set; } = "md";
+    [Parameter] public string? AdditionalButtonClass { get; set; }
+    [Parameter] public string ModalSize { get; set; } = "lg";
+
+    private bool IsVisible { get; set; }
+
+    private void ShowModal()
+    {
+        IsVisible = true;
+        StateHasChanged();
+    }
+
+    private async Task CloseModal()
+    {
+        IsVisible = false;
+        await OnClose.InvokeAsync();
+        StateHasChanged();
+    }
+
+    private async Task ConfirmAction()
+    {
+        await CloseModal();
+        await OnConfirm.InvokeAsync();
+    }
+}

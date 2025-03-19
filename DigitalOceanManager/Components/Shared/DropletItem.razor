@@ -1,0 +1,92 @@
+@using DigitalOceanManager.Extensions
+<tr>
+    <td>@Droplet.Name.CapitalizeFirstLetter()</td>
+    <td>@Droplet.IpAddress</td>
+    <td>
+        <span class="badge @(Droplet.Status == "active" ? "bg-success" : "bg-danger")">
+           @Droplet.Status.CapitalizeFirstLetter()
+        </span>
+    </td>
+    <td>
+        @if (_isNginxAvailable)
+        {
+            <span class="badge @(_isNginxRunning ? "bg-success" : "bg-danger")">
+                @(_isNginxRunning ? "Running" : "Stopped")
+            </span>
+        }
+    </td>
+    <td style="width:300px; display: flex;">
+        @if (_isNginxAvailable)
+        {
+            <button class="btn btn-primary btn-sm w-50 me-1" @onclick="NavigateToDropletManager">Manage Droplet</button>
+            <button class="btn btn-danger btn-sm w-50" @onclick="RestartNginx">Restart Nginx</button>
+        }
+        else
+        {
+            <button class="btn btn-primary btn-sm w-100" @onclick="NavigateToDropletManager">Manage Droplet</button>
+        }
+    </td>
+</tr>
+
+@code {
+    [Parameter] public Droplet Droplet { get; set; } = null!;
+    [Inject] private NavigationManager Navigation { get; set; } = null!;
+
+    private bool _isNginxRunning;
+    private bool _isNginxAvailable;
+
+    protected override void OnInitialized()
+    {
+        _isNginxAvailable = CheckIfNginxExists();
+        if (_isNginxAvailable)
+        {
+            CheckNginxStatus();
+        }
+    }
+
+    private void CheckNginxStatus()
+    {
+        var result = SshService.ExecuteCommand(Droplet.IpAddress, "systemctl list-units --type=service | grep nginx");
+
+        if (string.IsNullOrWhiteSpace(result))
+        {
+            Console.WriteLine($"Nginx is not installed on {Droplet.IpAddress}.");
+            _isNginxRunning = false;
+            return;
+        }
+
+        result = SshService.ExecuteCommand(Droplet.IpAddress, "systemctl is-active nginx");
+        _isNginxRunning = result.Trim() == "active";
+    }
+
+    private bool CheckIfNginxExists()
+    {
+        var result = SshService.ExecuteCommand(Droplet.IpAddress, "systemctl list-units --type=service | grep nginx");
+        return !string.IsNullOrWhiteSpace(result);
+    }
+
+    private void RestartNginx()
+    {
+        var result = SshService.ExecuteCommand(Droplet.IpAddress, "sudo systemctl restart nginx");
+        Console.WriteLine($"Restart command executed: {result}");
+        
+        ToastService.ShowSuccessToast($"Restart command executed: {result}");
+        
+        CheckNginxStatus();
+    }
+
+    private void NavigateToDropletManager()
+    {
+        Navigation.NavigateTo($"/manage-droplet/{Droplet.Id}");
+    }
+    
+    private void NavigateToWebsiteManager()
+    {
+        Navigation.NavigateTo($"/website-manager/{Droplet.Id}");
+    }
+
+    private void NavigateToFirewallManager()
+    {
+        Navigation.NavigateTo($"/firewall-manager/{Droplet.Id}");
+    }
+}

@@ -1,0 +1,39 @@
+@if (Toasts.Any())
+{
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 2000;">
+        @foreach (var toast in Toasts.OrderByDescending(x => x.Timestamp))
+        {
+            <div class="toast fade show" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="toast-header">
+                    <div class="@($"d-inline-block me-2 align-middle bg-{toast.Type.ToLower()} rounded-circle")" style="width: 1.25rem; height: 1.25rem;"></div>
+                    <h6 class="mb-0 me-auto">@toast.Title</h6>
+                    <small class="fw-medium text-body-secondary">@toast.Timestamp.ToString("hh:mm tt")</small>
+                    <button type="button" class="btn-close ms-2" @onclick="() => RemoveToast(toast)"></button>
+                </div>
+                <div class="toast-body">
+                    @toast.Message
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<ToastMessage> Toasts { get; set; } = [];
+
+    protected override void OnInitialized()
+    {
+        ToastService.OnChange += UpdateToasts;
+    }
+
+    private async Task UpdateToasts()
+    {
+        Toasts = ToastService.GetToasts().ToList();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void RemoveToast(ToastMessage toast)
+    {
+        ToastService.RemoveToast(toast);
+    }
+}

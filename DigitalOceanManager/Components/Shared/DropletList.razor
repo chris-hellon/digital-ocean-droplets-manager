@@ -1,0 +1,27 @@
+@inject ISshService SshService
+
+<div class="table-responsive">
+    <table class="table">
+        <thead>
+        <tr>
+            <th>Droplet</th>
+            <th>IP Address</th>
+            <th>Droplet Status</th>
+            <th>Nginx Status</th>
+            <th style="width:300px;">Actions</th>
+        </tr>
+        </thead>
+        <tbody>
+        @foreach (var droplet in Droplets)
+        {
+            <DropletItem Droplet="droplet" />
+        }
+        </tbody>
+    </table> 
+</div>
+
+
+@code {
+    [Parameter]
+    public List<Droplet> Droplets { get; set; } = new();
+}

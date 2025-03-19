@@ -1,0 +1,84 @@
+@inject NavigationManager Navigation
+
+<div class="card">
+    <div class="card-header">
+        Droplet Websites
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                <tr>
+                    <th>Website</th>
+                    <th>Supervisor Config</th>
+                    <th style="width:250px;">Actions</th>
+                </tr>
+                </thead>
+                <tbody>
+
+                @if (IsLoaded)
+                {
+                    if (Websites.Any())
+                    {
+                        foreach (var site in Websites.Where(site => site.Domain != "default"))
+                        {
+                            <tr>
+                                <td>@site.Domain</td>
+                                <td>@(site.SupervisorConfig == "Unknown" ? "Not Linked" : site.SupervisorConfig)</td>
+                                <td style="width:250px; display: flex;">
+                                    <button class="btn btn-primary btn-sm w-50 me-1" @onclick="() => NavigateToEdit(site.Domain)">
+                                        Edit
+                                    </button>
+                                    <DeleteConfirmationModal RecordType="Site" OnDeleteConfirmed="@(() => DeleteSite(site.Domain))" />
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="3">No websites available.</td>
+                        </tr>
+                    }
+                }
+                else
+                {
+                    <tr>
+                        <td colspan="3">Loading websites...</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="card-footer">
+        <button class="btn btn-success btn-sm" @onclick="NavigateToCreate">Create New Website</button>
+    </div>
+</div>
+
+@code {
+    [Parameter] public required string Id { get; set; }
+    [Parameter] public required List<WebsiteModel> Websites { get; set; } = [];
+    [Parameter] public bool IsLoaded { get; set; }
+    [Parameter] public required Func<string, Task> OnDeleteSiteCallback { get; set; }
+
+    private void NavigateToEdit(string domain)
+    {
+        Navigation.NavigateTo($"/edit-website/{Id}/{domain}");
+    }
+
+    private void NavigateToCreate()
+    {
+        Navigation.NavigateTo($"/create-website/{Id}");
+    }
+
+    private async Task DeleteSite(string site)
+    {
+        await ToastService.ShowToast($"Deleting Site {site}.");
+        
+        await OnDeleteSiteCallback.Invoke(site);
+        
+        await ToastService.ShowSuccessToast($"Site {site} deleted successfully.");
+    }
+}
+

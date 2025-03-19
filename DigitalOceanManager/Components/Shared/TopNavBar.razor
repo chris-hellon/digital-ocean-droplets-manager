@@ -1,0 +1,9 @@
+<div class="top-row ps-3 navbar navbar-dark top-nav-bar d-flex align-items-center">
+    <h1>@Title</h1>
+    @ChildContent
+</div>
+
+@code {
+    [Parameter] public required string Title { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

@@ -1,0 +1,29 @@
+@inject IJSRuntime Js
+
+<GenericModal Title="@($"Deploy Script for {Domain}")" ButtonTitle="View Deploy Script">
+    <Body>
+    <pre class="bg-light p-3"><code>@DeployScript</code></pre>
+    </Body>
+    <Footer>
+        <button class="btn btn-primary" @onclick="CopyDeployScript">Copy to Clipboard</button>
+    </Footer>
+</GenericModal>
+
+@code {
+    [Parameter] public required string Domain { get; set; }
+    [Parameter] public required string ProgramName { get; set; }
+    [Parameter] public required Droplet Droplet { get; set; }
+    
+    private string DeployScript { get; set; } = "";
+
+    protected override void OnParametersSet()
+    {
+        DeployScript = DropletStateService.GenerateDeployScript(Droplet, ProgramName, Domain);
+    }
+
+    private async Task CopyDeployScript()
+    {
+        await Js.InvokeVoidAsync("navigator.clipboard.writeText", DeployScript);
+        await ToastService.ShowSuccessToast("Deploy script copied to clipboard!");
+    }
+}
