@@ -401,5 +401,5 @@ FodyWeavers.xsd
 
 # Configuration files
 appsettings.json
-appsettings.*.json
+appsettings.development.json
 secrets.json
