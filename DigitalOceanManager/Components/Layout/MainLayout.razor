@@ -2,14 +2,16 @@
 @attribute [StreamRendering]
 
 <div class="page">
-    <div class="sidebar">
-        <NavMenu/>
-    </div>
+    @* <div class="sidebar"> *@
+    @*     <NavMenu/> *@
+    @* </div> *@
 
+    <NavBreadcrumbs />
+    
     <main>
-        <SectionOutlet SectionName="HeaderNav"/>
-        
-        <article class="content px-4 py-4">
+        @* <SectionOutlet SectionName="HeaderNav"/> *@
+
+        <article class="content px-4 py-4 container">
             @Body
         </article>
 

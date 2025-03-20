@@ -4,14 +4,7 @@
 @inject IJSRuntime JS
 @inject NavigationManager Navigation
 
-<SectionContent SectionName="HeaderNav">
-    <TopNavBar Title="@($"Edit Website: {Domain}")" />
-    
-    @if (IsLoaded)
-    {
-        <Breadcrumbs Items="@_breadcrumbs"/>
-    }
-</SectionContent>
+<PageTitle>@($"Edit Website: {Domain}") | Digital Ocean Droplet Manager</PageTitle>
 
 @if (!IsLoaded)
 {
@@ -19,19 +12,31 @@
 }
 else
 {
-    <div class="mb-4">
-        <label>Domain Name</label>
-        <input class="form-control" disabled value="@Domain" />
+    <div class="card mb-3">
+        <div class="card-header">
+            <label>Domain Name</label>
+        </div>
+        <div class="card-body">
+            <input class="form-control" disabled value="@Domain" />
+        </div>
     </div>
-
-    <div class="mb-4">
-        <label>Nginx Configuration</label>
-        <textarea @bind="_nginxConfig" class="form-control" rows="15" disabled="@_busySubmitting"></textarea>
+    
+    <div class="card mb-3">
+        <div class="card-header">
+            <label>Nginx Configuration</label>
+        </div>
+        <div class="card-body">
+            <textarea @bind="_nginxConfig" class="form-control" rows="15" disabled="@_busySubmitting"></textarea>
+        </div>
     </div>
-
-    <div class="mb-4">
-        <label>Supervisor Configuration</label>
-        <textarea @bind="_supervisorConfig" class="form-control" rows="9" disabled="@_busySubmitting"></textarea>
+    
+    <div class="card">
+        <div class="card-header">
+            <label>Supervisor Configuration</label>
+        </div>
+        <div class="card-body">
+            <textarea @bind="_supervisorConfig" class="form-control" rows="9" disabled="@_busySubmitting"></textarea>
+        </div>
     </div>
     
     <SectionContent SectionName="FooterActions">
@@ -58,7 +63,6 @@ else
     [Parameter] public string Domain { get; set; } = null!;
     
     private Droplet? Droplet { get; set; }
-    private List<BreadcrumbItem> _breadcrumbs = [];
     
     private string _nginxConfig = "Loading Config...";
     private string _supervisorConfig = "Loading Config...";
@@ -74,15 +78,13 @@ else
             return;
 
         Droplet = await DropletStateService.GetDropletById(int.Parse(Id));
-        
+
         if (Droplet == null) return;
-        
-        _breadcrumbs =
-        [
-            new BreadcrumbItem {Label = "Droplets", Url = "/"},
-            new BreadcrumbItem {Label = $"Manage {Droplet?.Name.CapitalizeFirstLetter()} Droplet", Url = $"/manage-droplet/{Id}"},
-            new BreadcrumbItem {Label = $"Edit Website: {Domain}"}
-        ];
+
+        await BreadcrumbService.SetBreadcrumbs([
+            new BreadcrumbItem {Label = $"Manage {Droplet?.Name.CapitalizeFirstLetter()} Droplet", Url = $"/manage-droplet/{Id}", IconClass = "fa-gear"},
+            new BreadcrumbItem {Label = $"Edit Website: {Domain}", IconClass = "fa-pen-to-square"}
+        ]);
         
         await LoadSiteConfig();
         IsLoaded = true;

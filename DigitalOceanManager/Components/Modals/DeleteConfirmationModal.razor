@@ -1,4 +1,4 @@
-<GenericModal Title="Confirm Deletion" ButtonTitle="Delete" ButtonSize="sm" ButtonType="danger" AdditionalButtonClass="w-50" ModalSize="md" OnConfirm="ConfirmDelete" ConfirmButtonText="Delete" ConfirmButtonType="danger">
+<GenericModal Title="Confirm Deletion" ButtonTitle="Delete" ButtonSize="sm" ButtonType="danger" AdditionalButtonClass="@AdditionalButtonCssClass" ModalSize="md" OnConfirm="ConfirmDelete" ConfirmButtonText="Delete" ConfirmButtonType="danger">
     <Body>
     <p>@Label</p>
     </Body>
@@ -7,6 +7,8 @@
 @code {
     [Parameter] public required EventCallback OnDeleteConfirmed { get; set; }
     [Parameter] public string? RecordType { get; set; }
+    [Parameter] public bool FullWidthButton { get; set; }
+    private string AdditionalButtonCssClass => !FullWidthButton ? "w-50" : "w-100";
     private string Label => $"Are you sure you want to delete this {(!string.IsNullOrEmpty(RecordType) ? RecordType : "record")}?";
 
     private async Task ConfirmDelete()

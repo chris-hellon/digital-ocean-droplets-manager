@@ -1,9 +1,6 @@
 @page "/"
 
-<SectionContent SectionName="HeaderNav">
-    <TopNavBar Title="Droplets" />
-</SectionContent>
-
+<PageTitle>Digital Ocean Droplet Manager</PageTitle>
 
 @if (_droplets == null)
 {
@@ -20,6 +17,11 @@ else
 
 @code {
     private List<Droplet>? _droplets;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await BreadcrumbService.SetBreadcrumbs([]);
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

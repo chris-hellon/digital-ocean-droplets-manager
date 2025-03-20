@@ -4,6 +4,7 @@ html, body {
 
 body {
     overscroll-behavior-y: none;
+    background-color:#f8f9fc;
 }
 
 a, .btn-link {

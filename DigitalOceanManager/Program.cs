@@ -24,6 +24,7 @@ public class Program
         builder.Services.AddScoped<IDropletStateService, DropletStateService>();
         builder.Services.AddScoped<IToastService, ToastService>();
         builder.Services.AddScoped<ILoaderService, LoaderService>();
+        builder.Services.AddScoped<IBreadcrumbService, BreadcrumbService>();
         
         var app = builder.Build();
 

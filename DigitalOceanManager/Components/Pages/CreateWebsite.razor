@@ -3,14 +3,7 @@
 
 @inject NavigationManager Navigation
 
-<SectionContent SectionName="HeaderNav">
-    <TopNavBar Title="Create New Website"/>
-    
-    @if (IsLoaded)
-    {
-        <Breadcrumbs Items="@_breadcrumbs"/>
-    }
-</SectionContent>
+<PageTitle>Create New Website | Digital Ocean Droplet Manager</PageTitle>
 
 @if (!IsLoaded)
 {
@@ -18,51 +11,69 @@
 }
 else
 {
-    <div class="mb-4">
-        <label>Domain Name</label>
-        <InputText Value="@_domain" ValueChanged="SetDomain" ValueExpression="() => _domain" class="form-control"
-                   placeholder="e.g. example.io" disabled="@_busySubmitting"></InputText>
-        @if (!string.IsNullOrWhiteSpace(_domainError))
-        {
-            <div class="text-danger mt-1">@_domainError</div>
-        }
-    </div>
-
-    <div class="mb-4">
-        <label>Port</label>
-        <select class="form-select" @onchange="SelectPort" disabled="@_busySubmitting">
-            <option value="">Select an existing port...</option>
-            @foreach (var port in _usedPortsBySite.Values.Distinct().Order())
+    <div class="card mb-3">
+        <div class="card-header">
+            <label>Domain Name</label>
+        </div>
+        <div class="card-body">
+            <InputText Value="@_domain" ValueChanged="SetDomain" ValueExpression="() => _domain" class="form-control"
+                       placeholder="e.g. example.io" disabled="@_busySubmitting"></InputText>
+            @if (!string.IsNullOrWhiteSpace(_domainError))
             {
-                <option value="@port">@port</option>
+                <div class="text-danger mt-1">@_domainError</div>
             }
-            <option value="new">Enter a new port</option>
-        </select>
-
-        @if (_selectingNewPort)
-        {
-            <InputNumber TValue="int" Value="@_port" ValueChanged="CheckPortUsage" ValueExpression="() => _port"
-                         class="form-control mt-2" placeholder="Enter a new port (e.g. 5001)" disabled="@_busySubmitting"/>
-        }
-
-        @if (_portConflict)
-        {
-            <div class="alert alert-warning mt-2">@($"⚠️ Port {_port} is already in use! Port {_port} Supervisor Config will be used.")</div>
-        }
+        </div>
     </div>
 
-    <div class="mb-4">
-        <input type="checkbox" checked="@_isBlazor" @onchange="@ToggleBlazor" disabled="@_busySubmitting"/> @(" Is Blazor")
+    <div class="card mb-3">
+        <div class="card-header">
+            <label>Port</label>
+        </div>
+        <div class="card-body">
+            <select class="form-select" @onchange="SelectPort" disabled="@_busySubmitting">
+                <option value="">Select an existing port...</option>
+                @foreach (var port in _usedPortsBySite.Values.Distinct().Order())
+                {
+                    <option value="@port">@port</option>
+                }
+                <option value="new">Enter a new port</option>
+            </select>
+
+            @if (_selectingNewPort)
+            {
+                <InputNumber TValue="int" Value="@_port" ValueChanged="CheckPortUsage" ValueExpression="() => _port"
+                             class="form-control mt-2" placeholder="Enter a new port (e.g. 5001)" disabled="@_busySubmitting"/>
+            }
+
+            @if (_portConflict)
+            {
+                <div class="alert alert-warning mt-2">@($"⚠️ Port {_port} is already in use! Port {_port} Supervisor Config will be used.")</div>
+            }
+        </div>
+    </div>
+    
+    <div class="card mb-3">
+        <div class="card-body">
+            <input type="checkbox" checked="@_isBlazor" @onchange="@ToggleBlazor" disabled="@_busySubmitting"/> @(" Is Blazor")
+        </div>
     </div>
 
-    <div class="mb-4">
-        <label>Nginx Configuration</label>
-        <textarea class="form-control" rows="10" disabled>@_nginxConfig</textarea>
+    <div class="card mb-3">
+        <div class="card-header">
+            <label>Nginx Configuration</label>
+        </div>
+        <div class="card-body">
+            <textarea class="form-control" rows="10" disabled>@_nginxConfig</textarea>
+        </div>
     </div>
-
-    <div class="mb-4">
-        <label>Supervisor Configuration</label>
-        <textarea class="form-control" rows="8" disabled>@_supervisorConfig</textarea>
+    
+    <div class="card mb-3">
+        <div class="card-header">
+            <label>Supervisor Configuration</label>
+        </div>
+        <div class="card-body">
+            <textarea class="form-control" rows="8" disabled>@_supervisorConfig</textarea>
+        </div>
     </div>
     
     <SectionContent SectionName="FooterActions">
@@ -80,8 +91,6 @@ else
 @code {
     [Parameter] public required string Id { get; set; }
     private Droplet? Droplet { get; set; }
-
-    private List<BreadcrumbItem> _breadcrumbs = [];
     
     private string _domain = string.Empty;
     private string _domainError = string.Empty;
@@ -96,21 +105,21 @@ else
     private bool IsLoaded { get; set; }
     
     private readonly Dictionary<string, int> _usedPortsBySite = new();
-    
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender)
             return;
-
+        
         Droplet = await DropletStateService.GetDropletById(int.Parse(Id));
+        
         if (Droplet == null)
             throw new Exception("Droplet not found.");
         
-        _breadcrumbs = [
-            new BreadcrumbItem {Label = "Droplets", Url = "/"},
-            new BreadcrumbItem {Label = $"Manage {Droplet?.Name.CapitalizeFirstLetter()} Droplet", Url = $"/manage-droplet/{Id}"},
-            new BreadcrumbItem {Label = "Create New Website"}
-        ];
+        await BreadcrumbService.SetBreadcrumbs([
+            new BreadcrumbItem {Label = $"Manage {Droplet?.Name.CapitalizeFirstLetter()} Droplet", Url = $"/manage-droplet/{Id}", IconClass = "fa-gear"},
+            new BreadcrumbItem {Label = "Create New Website", IconClass = "fa-circle-plus"}
+        ]);
         
         await LoadUsedPortsFromCache();
         

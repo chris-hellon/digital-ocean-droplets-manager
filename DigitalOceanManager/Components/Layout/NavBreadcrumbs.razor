@@ -1,0 +1,56 @@
+<div class="top-row ps-3 pe-3 container-fluid shadow position-sticky top-0">
+    <div class="row w-100 d-flex align-items-center">
+        <div class="col-lg-6 order-lg-1 order-2 pb-3 pb-lg-0">
+            @if (BreadcrumbService.Breadcrumbs.Any())
+            {
+                <nav aria-label="breadcrumb" class="navbar-breadcrumbs d-flex align-items-center">
+                    <ol class="breadcrumb">
+                        @foreach (var item in BreadcrumbService.Breadcrumbs)
+                        {
+                            <li class="breadcrumb-item @(item.IsActive ? "active" : "")" aria-current="@(item.IsActive ? "page" : null)">
+                                @if (!item.IsActive)
+                                {
+                                    <a href="@item.Url"><i class="@($"fa-solid {item.IconClass} me-2")"/> @item.Label</a>
+                                }
+                                else
+                                {
+                                    <i class="@($"fa-solid {item.IconClass} me-2")"/>
+                                    @item.Label
+                                }
+                            </li>
+                        }
+                    </ol>
+                </nav>
+            }
+            else
+            {
+                <nav aria-label="breadcrumb" class="navbar-breadcrumbs d-flex align-items-center">
+                </nav>
+            }
+        </div>
+        <div class="col-lg-6 order-lg-2 order-1 text-lg-end py-3 py-lg-0">
+            <a class="navbar-brand text-white" href="/">Digital Ocean Droplet Manager</a>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<BreadcrumbItem> _breadcrumbs = [];
+
+    protected override void OnInitialized()
+    {
+        BreadcrumbService.OnBreadcrumbsChanged += UpdateBreadcrumbs;
+        _breadcrumbs = BreadcrumbService.Breadcrumbs.ToList();
+    }
+
+    private async Task UpdateBreadcrumbs()
+    {
+        _breadcrumbs = BreadcrumbService.Breadcrumbs.ToList();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        BreadcrumbService.OnBreadcrumbsChanged -= UpdateBreadcrumbs;
+    }
+}

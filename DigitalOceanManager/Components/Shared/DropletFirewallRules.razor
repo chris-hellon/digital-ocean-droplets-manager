@@ -7,11 +7,11 @@
             <table class="table">
                 <thead>
                 <tr>
-                    <th>Rule #</th>
+                    <th style="width: 100px;">Rule #</th>
                     <th>To</th>
-                    <th>Action</th>
-                    <th>From</th>
-                    <th style="width: 200px;">Actions</th>
+                    <th style="min-width: 100px;">Action</th>
+                    <th style="min-width: 130px;">From</th>
+                    <th style="width: 75px;">Actions</th>
                 </tr>
                 </thead>
                 <tbody>
@@ -26,12 +26,12 @@
                         foreach (var rule in FirewallRules)
                         {
                             <tr>
-                                <td>[ @rule.RuleNumber ]</td>
+                                <td style="width: 100px;">[ @rule.RuleNumber ]</td>
                                 <td>@rule.To</td>
-                                <td>@rule.Action</td>
-                                <td>@rule.From</td>
-                                <td style="width: 200px;">
-                                    <DeleteConfirmationModal RecordType="Firewall Rule" OnDeleteConfirmed="@(() => RemoveFirewallRule(rule.RuleNumber))" />
+                                <td style="min-width: 100px;">@rule.Action</td>
+                                <td style="min-width: 130px;">@rule.From</td>
+                                <td style="width: 75px;">
+                                    <DeleteConfirmationModal RecordType="Firewall Rule" FullWidthButton="true" OnDeleteConfirmed="@(() => RemoveFirewallRule(rule.RuleNumber))" />
                                 </td>
                             </tr>
                         }
