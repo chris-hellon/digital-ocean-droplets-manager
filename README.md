@@ -1,6 +1,6 @@
 # DigitalOcean Manager
 
-A Blazor Web App for managing DigitalOcean droplets, deploying websites, configuring Nginx, and handling firewall settings, all without needing to use the terminal.
+A Blazor Web App for managing DigitalOcean droplets, configuring Nginx, and handling firewall settings, all without needing to use the terminal.
 
 ## Features
 
