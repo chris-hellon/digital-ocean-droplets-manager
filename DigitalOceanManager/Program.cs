@@ -37,7 +37,7 @@ public class Program
         }
 
         app.UseHttpsRedirection();
-
+        
         app.UseAntiforgery();
 
         app.MapStaticAssets();

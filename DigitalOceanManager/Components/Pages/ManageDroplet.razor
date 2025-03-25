@@ -10,11 +10,6 @@
     }
     else
     {
-        <SectionContent SectionName="HeaderNav">
-            <TopNavBar Title="@($"Manage {Droplet?.Name.CapitalizeFirstLetter()} Droplet")"/>
-            <Breadcrumbs />
-        </SectionContent>
-    
         if (!string.IsNullOrEmpty(_alertMessage))
         {
             <div class="alert @(_isSuccess ? "alert-success" : "alert-danger") mb-4" role="alert">
@@ -112,6 +107,10 @@ else
         ExecuteCommand($"sudo rm -f /etc/nginx/sites-enabled/{site}");
         ExecuteCommand($"sudo rm -f /etc/nginx/sites-available/{site}");
 
+        // ✅ Remove SSL certificate
+        Console.WriteLine($"🔒 Attempting to remove SSL certificate for: {site}");
+        ExecuteCommand($"sudo certbot delete --cert-name {site} --non-interactive");
+        
         // ✅ Reload Nginx
         ExecuteCommand("sudo nginx -t && sudo systemctl reload nginx");
 
